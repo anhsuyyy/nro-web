@@ -39,7 +39,8 @@
     let mobHpText;
     let spaceKey;
     let nextAttackTime = 0; 
-
+let txtSucManh, txtTiemNang, txtSucDanh, txtHp;
+let btnUpHp, btnUpSd;
     // ==========================================
     // 🎨 2. CÁC HÀM XỬ LÝ LOGIC GAME
     // ==========================================
@@ -57,99 +58,101 @@
     }
 
     function create() {
-        const scene = this;
-        cursors = scene.input.keyboard.createCursorKeys();
-        spaceKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE); 
+    const scene = this;
+    cursors = scene.input.keyboard.createCursorKeys();
+    spaceKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE); 
 
-        // Vẽ nền ô lưới nền tối
-        scene.add.grid(400, 225, 800, 450, 40, 40, 0x222222, 1, 0x333333, 1);
+    scene.add.grid(400, 225, 800, 450, 40, 40, 0x222222, 1, 0x333333, 1);
 
-        // Kết nối WebSocket đến Server của bạn
-        ws = new WebSocket('ws://localhost:8080');
+    // --- VẼ KHUNG UI CHỈ SỐ (HUD) GÓC TRÊN TRÁI MÀN HÌNH ---
+    scene.add.rectangle(110, 70, 200, 120, 0x000000, 0.6).setOrigin(0); // Khung đen mờ
+    txtSucManh = scene.add.text(120, 80, 'Sức mạnh: 0', { fontSize: '13px', fill: '#00ffff' }).setOrigin(0);
+    txtTiemNang = scene.add.text(120, 100, 'Tiềm năng: 0', { fontSize: '13px', fill: '#ffaa00' }).setOrigin(0);
+    txtSucDanh = scene.add.text(120, 120, 'Sức đánh: 0', { fontSize: '13px', fill: '#ff5555' }).setOrigin(0);
+    txtHp = scene.add.text(120, 140, 'HP Tối đa: 0', { fontSize: '13px', fill: '#55ff55' }).setOrigin(0);
 
-        ws.onmessage = (event) => {
-            const packet = JSON.parse(event.data);
+    // Nút cộng Sức đánh
+    btnUpSd = scene.add.text(250, 120, '[+]', { fontSize: '13px', fill: '#ffff00', backgroundColor: '#333' })
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => {
+            ws.send(JSON.stringify({ type: 'UP_STATS', data: { statType: 'SD' } }));
+        });
 
-            if (packet.type === 'INIT_CONNECTED') {
-                myId = packet.data.id;
+    // Nút cộng HP
+    btnUpHp = scene.add.text(250, 140, '[+]', { fontSize: '13px', fill: '#ffff00', backgroundColor: '#333' })
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => {
+            ws.send(JSON.stringify({ type: 'UP_STATS', data: { statType: 'HP' } }));
+        });
+
+    ws = new WebSocket('ws://localhost:8080');
+
+    ws.onmessage = (event) => {
+        const packet = JSON.parse(event.data);
+
+        // Khi kết nối hoặc cộng điểm thành công, cập nhật lại toàn bộ chữ hiển thị trên UI
+        if (packet.type === 'INIT_CONNECTED') {
+            myId = packet.data.id;
+            
+            if(packet.data.stats) {
+                txtSucManh.setText('Sức mạnh: ' + packet.data.stats.sucManh);
+                txtTiemNang.setText('Tiềm năng: ' + packet.data.stats.tiemNang);
+                txtSucDanh.setText('Sức đánh: ' + packet.data.stats.sucDanh);
+                txtHp.setText('HP Tối đa: ' + packet.data.stats.maxHp);
+            }
+
+            // (Giữ nguyên đoạn code vẽ Container nhân vật cũ bên dưới nếu đã có...)
+            if(!player) {
                 let partHead = scene.add.sprite(0, -20, 'hero_head', 0);
                 let partBody = scene.add.sprite(0, 0, 'hero_body', 0);
-                player = scene.add.container(Math.random() * 200 + 100, Math.random() * 200 + 100, [partBody, partHead]);
+                player = scene.add.container(400, 300, [partBody, partHead]);
                 scene.physics.world.enable(player);
                 player.body.setCollideWorldBounds(true);
                 player.partBody = partBody; player.partHead = partHead;
-
                 let nameText = scene.add.text(0, -45, myId, { fontSize: '12px', fill: '#ffff00' }).setOrigin(0.5);
                 player.add(nameText);
             }
-
-            if (packet.type === 'SYNC_GAME') {
-                const playersData = packet.data.players;
-                const mobData = packet.data.mob;
-
-                // --- ĐỒNG BỘ QUÁI VẬT ---
-                if (!mobSprite && !mobData.isDead) {
-                    mobSprite = scene.add.sprite(mobData.x, mobData.y, 'texture_mob');
-                    mobHpText = scene.add.text(mobData.x, mobData.y - 45, `${mobData.hp}/${mobData.maxHp}`, { fontSize: '12px', fill: '#ff6666' }).setOrigin(0.5);
-                } else if (mobSprite) {
-                    if (mobData.isDead) {
-                        mobSprite.destroy(); mobSprite = null;
-                        mobHpText.destroy(); mobHpText = null;
-                    } else {
-                        mobHpText.setText(`${mobData.hp}/${mobData.maxHp}`);
-                    }
-                }
-
-                // --- ĐỒNG BỘ NGƯỜI CHƠI KHÁC ---
-              // --- ĐỒNG BỘ NGƯỜI CHƠI KHÁC (Bản cập nhật giảm giật) ---
-for (let id in playersData) {
-    if (id === myId) continue;
-    if (!otherPlayers[id]) {
-        let oHead = scene.add.sprite(0, -20, 'hero_head', 0);
-        let oBody = scene.add.sprite(0, 0, 'hero_body', 0);
-        let oText = scene.add.text(0, -45, id, { fontSize: '12px', fill: '#ff0000' }).setOrigin(0.5);
-        let container = scene.add.container(playersData[id].x, playersData[id].y, [oBody, oHead, oText]);
-        
-        scene.physics.world.enable(container);
-        otherPlayers[id] = container;
-    } else {
-        // Thay vì gán cứng: otherPlayers[id].x = playersData[id].x;
-        // Chúng ta dùng hàm di chuyển vật lý hướng tới mục tiêu (di chuyển mượt hơn)
-        scene.physics.moveTo(otherPlayers[id], playersData[id].x, playersData[id].y, 150, 50); // 150 là tốc độ, 50ms là thời gian tối đa
-        
-        // Sửa hướng quay mặt của người chơi khác
-        if (playersData[id].x < otherPlayers[id].x) {
-            otherPlayers[id].list[0].setFlipX(true); // lật body
-            otherPlayers[id].list[1].setFlipX(true); // lật head
-        } else if (playersData[id].x > otherPlayers[id].x) {
-            otherPlayers[id].list[0].setFlipX(false);
-            otherPlayers[id].list[1].setFlipX(false);
         }
-    }
-}
-                // Xóa bớt người chơi offline để tránh rác RAM
-                for (let id in otherPlayers) {
-                    if (!playersData[id]) {
-                        otherPlayers[id].destroy();
-                        delete otherPlayers[id];
-                    }
+
+        // Khi đấm quái, chỉ cần cập nhật nhanh điểm Sức mạnh & Tiềm năng liên tục
+        if (packet.type === 'UPDATE_STATS') {
+            txtSucManh.setText('Sức mạnh: ' + packet.data.sucManh);
+            txtTiemNang.setText('Tiềm năng: ' + packet.data.tiemNang);
+        }
+
+        // (Giữ nguyên các đoạn check packet.type === 'SYNC_GAME' và 'MOB_DAMAGED' cũ nhé)
+        if (packet.type === 'SYNC_GAME') {
+            const playersData = packet.data.players;
+            const mobData = packet.data.mob;
+            if (!mobSprite && !mobData.isDead) {
+                mobSprite = scene.add.sprite(mobData.x, mobData.y, 'texture_mob');
+                mobHpText = scene.add.text(mobData.x, mobData.y - 45, `${mobData.hp}/${mobData.maxHp}`, { fontSize: '12px', fill: '#ff6666' }).setOrigin(0.5);
+            } else if (mobSprite) {
+                if (mobData.isDead) { mobSprite.destroy(); mobSprite = null; mobHpText.destroy(); mobHpText = null; } 
+                else { mobHpText.setText(`${mobData.hp}/${mobData.maxHp}`); }
+            }
+            for (let id in playersData) {
+                if (id === myId) continue;
+                if (!otherPlayers[id]) {
+                    let oHead = scene.add.sprite(0, -20, 'hero_head', 0);
+                    let oBody = scene.add.sprite(0, 0, 'hero_body', 0);
+                    let oText = scene.add.text(0, -45, id, { fontSize: '12px', fill: '#ff0000' }).setOrigin(0.5);
+                    let container = scene.add.container(playersData[id].x, playersData[id].y, [oBody, oHead, oText]);
+                    scene.physics.world.enable(container);
+                    otherPlayers[id] = container;
+                } else {
+                    scene.physics.moveTo(otherPlayers[id], playersData[id].x, playersData[id].y, 150, 50);
                 }
             }
+            for (let id in otherPlayers) { if (!playersData[id]) { otherPlayers[id].destroy(); delete otherPlayers[id]; } }
+        }
 
-            // --- HIỆU ỨNG SỐ DAMAGE BAY LÊN ---
-            if (packet.type === 'MOB_DAMAGED') {
-                let dmgText = scene.add.text(400, 180, `-${packet.data.damage}`, { fontSize: '18px', fill: '#ff0000', fontWeight: 'bold' }).setOrigin(0.5);
-                scene.tweens.add({
-                    targets: dmgText,
-                    y: 130,
-                    alpha: 0,
-                    duration: 800,
-                    onComplete: () => { dmgText.destroy(); }
-                });
-            }
-        };
-    }
-
+        if (packet.type === 'MOB_DAMAGED') {
+            let dmgText = scene.add.text(400, 180, `-[${packet.data.damage}]`, { fontSize: '18px', fill: '#ff0000', fontWeight: 'bold' }).setOrigin(0.5);
+            scene.tweens.add({ targets: dmgText, y: 130, alpha: 0, duration: 800, onComplete: () => { dmgText.destroy(); } });
+        }
+    };
+}
     function update() {
         if (!player || !ws || ws.readyState !== 1) return;
 

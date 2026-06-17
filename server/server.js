@@ -19,10 +19,32 @@ console.log("🚀 Game Server NRO (Giai đoạn 4: PvE) đang chạy cổng 8080
 
 wss.on('connection', (ws) => {
     const playerId = 'player_' + Math.random().toString(36).substr(2, 9);
-    players[playerId] = { x: 0, y: 0, isMoving: false, ws: ws };
-
-    ws.send(JSON.stringify({ type: 'INIT_CONNECTED', data: { id: playerId } }));
-
+    console.log(`📡 Người chơi mới kết nối: ${playerId}`);
+players[playerId] = { 
+        x: Math.random() * 200 + 100, 
+        y: Math.random() * 200 + 100, 
+        isMoving: false, 
+        ws: ws,
+        // --- CHỈ SỐ NHÂN VẬT ---
+        sucManh: 2000,     // Sức mạnh tổng
+        tiemNang: 500,     // Điểm dùng để nâng cấp
+        sucDanh: 50,       // Sức đánh gốc
+        maxHp: 1000,
+        maxKi: 1000
+    };
+ws.send(JSON.stringify({ 
+        type: 'INIT_CONNECTED', 
+        data: { 
+            id: playerId,
+            stats: {
+                sucManh: players[playerId].sucManh,
+                tiemNang: players[playerId].tiemNang,
+                sucDanh: players[playerId].sucDanh,
+                maxHp: players[playerId].maxHp,
+                maxKi: players[playerId].maxKi
+            }
+        } 
+    }));
     ws.on('message', (message) => {
         try {
             const packet = JSON.parse(message);
@@ -39,32 +61,60 @@ wss.on('connection', (ws) => {
                 case 'PLAYER_ATTACK':
                     if (mob.isDead) return;
 
-                    // 1. Kiểm tra khoảng cách giữa người chơi và quái (Dùng công thức Pitago)
                     const pX = players[playerId].x;
                     const pY = players[playerId].y;
                     const distance = Math.sqrt(Math.pow(pX - mob.x, 2) + Math.pow(pY - mob.y, 2));
 
-                    if (distance <= 80) { // Khoảng cách đủ gần để đấm tay (80 pixel)
-                        let damage = Math.floor(Math.random() * 20) + 40; // Sức đánh ngẫu nhiên từ 40 - 60
+                    if (distance <= 80) { 
+                        // Sát thương bằng Sức đánh của người chơi + một chút ngẫu nhiên
+                        let damage = players[playerId].sucDanh + Math.floor(Math.random() * 10); 
                         mob.hp -= damage;
 
+                        // Cộng điểm Tiềm năng & Sức mạnh bằng 1/2 lượng damage gây ra
+                        let expGained = Math.floor(damage / 2);
+                        players[playerId].sucManh += expGained;
+                        players[playerId].tiemNang += expGained;
+
                         if (mob.hp <= 0) {
-                            mob.hp = 0;
-                            mob.isDead = true;
-                            // Hồi sinh quái sau 5 giây
-                            setTimeout(() => {
-                                mob.hp = mob.maxHp;
-                                mob.isDead = false;
-                                console.log("🔄 Mộc Nhân đã hồi sinh!");
-                            }, 5000);
+                            mob.hp = 0; mob.isDead = true;
+                            setTimeout(() => { mob.hp = mob.maxHp; mob.isDead = false; }, 5000);
                         }
 
-                        // Phát gói tin báo cho tất cả mọi người có người vừa đấm quái
+                        // Gửi gói tin cập nhật chỉ số riêng cho người đấm
+                        ws.send(JSON.stringify({
+                            type: 'UPDATE_STATS',
+                            data: {
+                                sucManh: players[playerId].sucManh,
+                                tiemNang: players[playerId].tiemNang
+                            }
+                        }));
+
+                        // Báo hiệu damage cho toàn server vẽ hiệu ứng
                         broadcast({
                             type: 'MOB_DAMAGED',
                             data: { mobId: mob.id, hp: mob.hp, damage: damage, isDead: mob.isDead }
                         });
                     }
+                    break;
+
+                // --- TÍNH NĂNG CỘNG ĐIỂM TIỀM NĂNG ---
+                case 'UP_STATS':
+                    const typeUp = packet.data.statType; // 'HP' hoặc 'SD'
+                    const player = players[playerId];
+
+                    if (typeUp === 'SD' && player.tiemNang >= 100) {
+                        player.tiemNang -= 100;
+                        player.sucDanh += 5; // Tăng 5 sức đánh
+                    } else if (typeUp === 'HP' && player.tiemNang >= 50) {
+                        player.tiemNang -= 50;
+                        player.maxHp += 20; // Tăng 20 HP tối đa
+                    }
+
+                    // Gửi lại chỉ số mới sau khi nâng cấp thành công
+                    ws.send(JSON.stringify({
+                        type: 'INIT_CONNECTED', // Tận dụng lại gói tin này để cập nhật toàn bộ UI chỉ số
+                        data: { id: playerId, stats: { sucManh: player.sucManh, tiemNang: player.tiemNang, sucDanh: player.sucDanh, maxHp: player.maxHp, maxKi: player.maxKi } }
+                    }));
                     break;
             }
         } catch (e) { console.error(e); }
