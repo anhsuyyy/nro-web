@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Tool Tạo Sprite Sheet NRO Web</title>
+</head>
+<body style="background: #222; color: #fff; text-align: center; font-family: sans-serif; padding-top: 50px;">
+
+    <h2>🎨 ĐANG TẠO VÀ TẢI ASSETS TỰ ĐỘNG...</h2>
+    <p>Sau khi chạy file này, hãy kiểm tra thư mục Download trên máy tính của bạn.</p>
+
+    <script>
+        // Hàm tự động tải file từ Canvas
+        function downloadCanvas(canvas, filename) {
+            let link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // =======================================================
+        // 1. TẠO FILE TÓC/ĐẦU (hero_head.png) - Kích thước 32x32 (1 frame)
+        // =======================================================
+        let canvasHead = document.createElement('canvas');
+        canvasHead.width = 32; canvasHead.height = 32;
+        let ctxH = canvasHead.getContext('2d');
+
+        // Vẽ một cái đầu nón màu vàng (Gợi ý tóc Super Saiyan)
+        ctxH.fillStyle = '#f1c40f'; // Màu vàng thẫm
+        ctxH.beginPath();
+        ctxH.moveTo(16, 2);  // Đỉnh tóc gợn sóng
+        ctxH.lineTo(6, 20);
+        ctxH.lineTo(12, 20);
+        ctxH.lineTo(4, 28);
+        ctxH.lineTo(28, 28);
+        ctxH.lineTo(20, 20);
+        ctxH.lineTo(26, 20);
+        ctxH.closePath();
+        ctxH.fill();
+
+        // Vẽ khuôn mặt cơ bản bên trong
+        ctxH.fillStyle = '#ffdbac'; // Màu da
+        ctxH.fillRect(10, 22, 12, 10);
+        // Vẽ mắt chiến binh
+        ctxH.fillStyle = '#000';
+        ctxH.fillRect(12, 25, 2, 2);
+        ctxH.fillRect(18, 25, 2, 2);
+
+        downloadCanvas(canvasHead, 'hero_head.png');
+
+        // =======================================================
+        // 2. TẠO FILE THÂN CHẠY (hero_body.png) - Kích thước 128x48 (4 frames x 32px)
+        // Frame 0: Đứng yên | Frame 1,2,3: Hiệu ứng chân bước chạy
+        // =======================================================
+        let canvasBody = document.createElement('canvas');
+        canvasBody.width = 128; canvasBody.height = 48; // 4 khung hình nằm ngang
+        let ctxB = canvasBody.getContext('2d');
+
+        for (let i = 0; i < 4; i++) {
+            let offsetX = i * 32;
+
+            // Vẽ Áo Giáp (Thân chung cho cả 4 frame)
+            ctxB.fillStyle = '#e67e22'; // Áo màu cam rực lửa võ phục
+            ctxB.fillRect(offsetX + 8, 4, 16, 24); // Khối thân chính
+            ctxB.fillStyle = '#34495e'; // Đai lưng xanh lam
+            ctxB.fillRect(offsetX + 8, 20, 16, 4);
+
+            // Vẽ Đôi Tay (Thay đổi tư thế nhẹ khi chạy)
+            ctxB.fillStyle = '#ffdbac'; // Tay màu da
+            if (i % 2 === 0) {
+                ctxB.fillRect(offsetX + 4, 8, 4, 12);  // Tay trái đưa lên
+                ctxB.fillRect(offsetX + 24, 12, 4, 12); // Tay phải hạ xuống
+            } else {
+                ctxB.fillRect(offsetX + 4, 12, 4, 12);
+                ctxB.fillRect(offsetX + 24, 8, 4, 12);
+            }
+
+            // Vẽ Đôi Chân (Hoạt họa bước chân di chuyển qua từng Frame)
+            ctxB.fillStyle = '#2980b9'; // Quần xanh nước biển
+            if (i === 0) {
+                // Frame 0: Đứng nghiêm chỉnh
+                ctxB.fillRect(offsetX + 8, 28, 6, 20);
+                ctxB.fillRect(offsetX + 18, 28, 6, 20);
+            } else if (i === 1) {
+                // Frame 1: Chân trái bước lên, chân phải lùi sau
+                ctxB.fillRect(offsetX + 4, 28, 6, 16);
+                ctxB.fillRect(offsetX + 16, 28, 6, 20);
+            } else if (i === 2) {
+                // Frame 2: Chân co lại giữa chu kỳ chạy
+                ctxB.fillRect(offsetX + 8, 28, 6, 18);
+                ctxB.fillRect(offsetX + 18, 28, 6, 18);
+            } else if (i === 3) {
+                // Frame 3: Chân phải bước lên, chân trái lùi sau
+                ctxB.fillRect(offsetX + 10, 28, 6, 20);
+                ctxB.fillRect(offsetX + 22, 28, 6, 16);
+            }
+        }
+
+        downloadCanvas(canvasBody, 'hero_body.png');
+    </script>
+</body>
+</html>
