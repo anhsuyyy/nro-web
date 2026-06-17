@@ -1,182 +1,191 @@
-<!-- client/game.html -->
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>NRO Web - Giai Đoạn 4: Combat & Quái Vật</title>
+    <title>NRO Web - Nhiều Quái & Tiềm Năng</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-        canvas { border: 4px solid #f5b041; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
+        canvas { border: 4px solid #f1c40f; }
     </style>
 </head>
 <body>
 
 <script>
-    // ==========================================
-    // 🧠 1. KHỞI TẠO CẤU HÌNH PHASER (ĐOẠN CÒN THIẾU)
-    // ==========================================
     const config = {
-        type: Phaser.AUTO,
-        width: 800,
-        height: 450,
-        physics: {
-            default: 'arcade',
-            arcade: { gravity: { y: 0 }, debug: false }
-        },
+        type: Phaser.AUTO, width: 800, height: 450,
+        physics: { default: 'arcade', arcade: { gravity: { y: 0 } } },
         scene: { preload: preload, create: create, update: update }
     };
-
     const game = new Phaser.Game(config);
 
-    // Khai báo các biến toàn cục dùng chung cho Game
-    let ws;
-    let myId = null;
-    let player; 
-    let cursors;
-    let otherPlayers = {}; // <-- Phải khởi tạo object này để quản lý người chơi khác
-    let mobSprite;
-    let mobHpText;
-    let spaceKey;
-    let nextAttackTime = 0; 
-let txtSucManh, txtTiemNang, txtSucDanh, txtHp;
-let btnUpHp, btnUpSd;
-    // ==========================================
-    // 🎨 2. CÁC HÀM XỬ LÝ LOGIC GAME
-    // ==========================================
+    let ws, myId, player, cursors, otherPlayers = {};
+    let mobsSprites = {}; // Quản lý danh sách nhiều quái vật theo ID
+    let key1, key2, key3; 
+    let txtSucManh, txtTiemNang, txtSkillInfo, txtCombatLog;
+    let nextAttackTime = 0;
+
     function preload() {
-        // Load ảnh thật từ thư mục assets của bạn
         this.load.spritesheet('hero_head', 'assets/hero_head.png', { frameWidth: 32, frameHeight: 32 });
         this.load.spritesheet('hero_body', 'assets/hero_body.png', { frameWidth: 32, frameHeight: 48 });
-
-        // Tự vẽ ảnh Mộc nhân màu nâu trực tiếp bằng Canvas
-        let canvasMob = document.createElement('canvas');
-        canvasMob.width = 40; canvasMob.height = 60;
-        let ctxM = canvasMob.getContext('2d');
-        ctxM.fillStyle = '#875a36'; ctxM.fillRect(0, 0, 40, 60); 
-        this.textures.addCanvas('texture_mob', canvasMob);
     }
 
     function create() {
-    const scene = this;
-    cursors = scene.input.keyboard.createCursorKeys();
-    spaceKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE); 
+        const scene = this;
+        cursors = scene.input.keyboard.createCursorKeys();
+        
+        key1 = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
+        key2 = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO);
+        key3 = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE);
 
-    scene.add.grid(400, 225, 800, 450, 40, 40, 0x222222, 1, 0x333333, 1);
+        scene.add.grid(400, 225, 800, 450, 40, 40, 0x222222, 1, 0x333333, 1);
 
-    // --- VẼ KHUNG UI CHỈ SỐ (HUD) GÓC TRÊN TRÁI MÀN HÌNH ---
-    scene.add.rectangle(110, 70, 200, 120, 0x000000, 0.6).setOrigin(0); // Khung đen mờ
-    txtSucManh = scene.add.text(120, 80, 'Sức mạnh: 0', { fontSize: '13px', fill: '#00ffff' }).setOrigin(0);
-    txtTiemNang = scene.add.text(120, 100, 'Tiềm năng: 0', { fontSize: '13px', fill: '#ffaa00' }).setOrigin(0);
-    txtSucDanh = scene.add.text(120, 120, 'Sức đánh: 0', { fontSize: '13px', fill: '#ff5555' }).setOrigin(0);
-    txtHp = scene.add.text(120, 140, 'HP Tối đa: 0', { fontSize: '13px', fill: '#55ff55' }).setOrigin(0);
+        // Bảng HUD Chỉ số
+        scene.add.rectangle(10, 10, 220, 140, 0x000000, 0.7).setOrigin(0);
+        txtSucManh = scene.add.text(20, 20, 'Sức mạnh: Loading...', { fontSize: '13px', fill: '#00ffff' });
+        txtTiemNang = scene.add.text(20, 40, 'Tiềm năng: Loading...', { fontSize: '13px', fill: '#ffaa00' });
+        txtSkillInfo = scene.add.text(20, 70, '[1] Chiêu 1\n[2] Chiêu 2\n[3] Chiêu 3', { fontSize: '12px', fill: '#ffffff', lineHeight: 1.5 });
+        txtCombatLog = scene.add.text(400, 20, '', { fontSize: '14px', fill: '#f1c40f', fontWeight: 'bold' }).setOrigin(0.5);
 
-    // Nút cộng Sức đánh
-    btnUpSd = scene.add.text(250, 120, '[+]', { fontSize: '13px', fill: '#ffff00', backgroundColor: '#333' })
-        .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => {
-            ws.send(JSON.stringify({ type: 'UP_STATS', data: { statType: 'SD' } }));
-        });
+        const savedUser = sessionStorage.getItem('nro_username') || "admin";
 
-    // Nút cộng HP
-    btnUpHp = scene.add.text(250, 140, '[+]', { fontSize: '13px', fill: '#ffff00', backgroundColor: '#333' })
-        .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => {
-            ws.send(JSON.stringify({ type: 'UP_STATS', data: { statType: 'HP' } }));
-        });
+        ws = new WebSocket('ws://localhost:8080');
+        ws.onopen = () => {
+            ws.send(JSON.stringify({ type: 'AUTH', data: { user: savedUser, pass: '', isRegister: false, isGameSession: true } }));
+        };
 
-    ws = new WebSocket('ws://localhost:8080');
+        ws.onmessage = (event) => {
+            const packet = JSON.parse(event.data);
 
-    ws.onmessage = (event) => {
-        const packet = JSON.parse(event.data);
-
-        // Khi kết nối hoặc cộng điểm thành công, cập nhật lại toàn bộ chữ hiển thị trên UI
-        if (packet.type === 'INIT_CONNECTED') {
-            myId = packet.data.id;
-            
-            if(packet.data.stats) {
+            if (packet.type === 'INIT_CONNECTED') {
+                myId = packet.data.id;
                 txtSucManh.setText('Sức mạnh: ' + packet.data.stats.sucManh);
                 txtTiemNang.setText('Tiềm năng: ' + packet.data.stats.tiemNang);
-                txtSucDanh.setText('Sức đánh: ' + packet.data.stats.sucDanh);
-                txtHp.setText('HP Tối đa: ' + packet.data.stats.maxHp);
-            }
+                
+                let sk = packet.data.skills;
+                txtSkillInfo.setText(`Hành tinh: ${packet.data.planet}\n[1] ${sk[0].name} (Tầm: ${sk[0].range})\n[2] ${sk[1].name} (Tầm: ${sk[1].range})\n[3] ${sk[2].name} (Đặc biệt)`);
 
-            // (Giữ nguyên đoạn code vẽ Container nhân vật cũ bên dưới nếu đã có...)
-            if(!player) {
-                let partHead = scene.add.sprite(0, -20, 'hero_head', 0);
-                let partBody = scene.add.sprite(0, 0, 'hero_body', 0);
-                player = scene.add.container(400, 300, [partBody, partHead]);
-                scene.physics.world.enable(player);
-                player.body.setCollideWorldBounds(true);
-                player.partBody = partBody; player.partHead = partHead;
-                let nameText = scene.add.text(0, -45, myId, { fontSize: '12px', fill: '#ffff00' }).setOrigin(0.5);
-                player.add(nameText);
-            }
-        }
-
-        // Khi đấm quái, chỉ cần cập nhật nhanh điểm Sức mạnh & Tiềm năng liên tục
-        if (packet.type === 'UPDATE_STATS') {
-            txtSucManh.setText('Sức mạnh: ' + packet.data.sucManh);
-            txtTiemNang.setText('Tiềm năng: ' + packet.data.tiemNang);
-        }
-
-        // (Giữ nguyên các đoạn check packet.type === 'SYNC_GAME' và 'MOB_DAMAGED' cũ nhé)
-        if (packet.type === 'SYNC_GAME') {
-            const playersData = packet.data.players;
-            const mobData = packet.data.mob;
-            if (!mobSprite && !mobData.isDead) {
-                mobSprite = scene.add.sprite(mobData.x, mobData.y, 'texture_mob');
-                mobHpText = scene.add.text(mobData.x, mobData.y - 45, `${mobData.hp}/${mobData.maxHp}`, { fontSize: '12px', fill: '#ff6666' }).setOrigin(0.5);
-            } else if (mobSprite) {
-                if (mobData.isDead) { mobSprite.destroy(); mobSprite = null; mobHpText.destroy(); mobHpText = null; } 
-                else { mobHpText.setText(`${mobData.hp}/${mobData.maxHp}`); }
-            }
-            for (let id in playersData) {
-                if (id === myId) continue;
-                if (!otherPlayers[id]) {
-                    let oHead = scene.add.sprite(0, -20, 'hero_head', 0);
-                    let oBody = scene.add.sprite(0, 0, 'hero_body', 0);
-                    let oText = scene.add.text(0, -45, id, { fontSize: '12px', fill: '#ff0000' }).setOrigin(0.5);
-                    let container = scene.add.container(playersData[id].x, playersData[id].y, [oBody, oHead, oText]);
-                    scene.physics.world.enable(container);
-                    otherPlayers[id] = container;
-                } else {
-                    scene.physics.moveTo(otherPlayers[id], playersData[id].x, playersData[id].y, 150, 50);
+                if(!player) {
+                    let partHead = scene.add.sprite(0, -20, 'hero_head', 0);
+                    let partBody = scene.add.sprite(0, 0, 'hero_body', 0);
+                    player = scene.add.container(packet.data.x, packet.data.y, [partBody, partHead]);
+                    scene.physics.world.enable(player);
+                    player.body.setCollideWorldBounds(true);
+                    player.partBody = partBody; player.partHead = partHead;
+                    player.add(scene.add.text(0, -45, myId, { fontSize: '12px', fill: '#ffff00' }).setOrigin(0.5));
                 }
             }
-            for (let id in otherPlayers) { if (!playersData[id]) { otherPlayers[id].destroy(); delete otherPlayers[id]; } }
-        }
 
-        if (packet.type === 'MOB_DAMAGED') {
-            let dmgText = scene.add.text(400, 180, `-[${packet.data.damage}]`, { fontSize: '18px', fill: '#ff0000', fontWeight: 'bold' }).setOrigin(0.5);
-            scene.tweens.add({ targets: dmgText, y: 130, alpha: 0, duration: 800, onComplete: () => { dmgText.destroy(); } });
-        }
-    };
-}
+            if (packet.type === 'UPDATE_STATS') {
+                txtSucManh.setText('Sức mạnh: ' + packet.data.sucManh);
+                txtTiemNang.setText('Tiềm năng: ' + packet.data.tiemNang);
+            }
+
+            if (packet.type === 'SYNC_GAME') {
+                const playersData = packet.data.players;
+                const mobsData = packet.data.mobs || [];
+
+                // --- XỬ LÝ VẼ & ĐỒNG BỘ NHIỀU QUÁI VẬT ---
+                let activeMobIds = new Set();
+
+                mobsData.forEach(mMob => {
+                    if (mMob.isDead) return;
+                    activeMobIds.add(mMob.id);
+
+                    if (!mobsSprites[mMob.id]) {
+                        // Nếu chưa có thì sinh ra khối chữ nhật đại diện cho quái vật
+                        let rect = scene.add.rectangle(mMob.x, mMob.y, 40, 60, 0x875a36);
+                        rect.setStrokeStyle(2, 0x000000);
+                        let txt = scene.add.text(mMob.x, mMob.y - 50, `${mMob.hp}/${mMob.maxHp}`, { fontSize: '12px', fill: '#ff6666' }).setOrigin(0.5);
+                        
+                        mobsSprites[mMob.id] = { body: rect, text: txt };
+                    } else {
+                        // Nếu có rồi thì cập nhật vị trí và máu của quái cụ thể
+                        mobsSprites[mMob.id].body.setPosition(mMob.x, mMob.y);
+                        mobsSprites[mMob.id].text.setPosition(mMob.x, mMob.y - 50);
+                        mobsSprites[mMob.id].text.setText(`${mMob.hp}/${mMob.maxHp}`);
+                    }
+                });
+
+                // Xóa những con quái đã chết hoặc không có dữ liệu khỏi màn hình
+                for (let id in mobsSprites) {
+                    if (!activeMobIds.has(id)) {
+                        mobsSprites[id].body.destroy();
+                        mobsSprites[id].text.destroy();
+                        delete mobsSprites[id];
+                    }
+                }
+
+                // --- ĐỒNG BỘ NGƯỜI CHƠI KHÁC MƯỢT MÀ ---
+                for (let id in playersData) {
+                    if (id === myId) continue;
+                    if (!otherPlayers[id]) {
+                        let oHead = scene.add.sprite(0, -20, 'hero_head', 0);
+                        let oBody = scene.add.sprite(0, 0, 'hero_body', 0);
+                        let container = scene.add.container(playersData[id].x, playersData[id].y, [oBody, oHead]);
+                        container.add(scene.add.text(0, -45, id, { fontSize: '12px', fill: '#ff0000' }).setOrigin(0.5));
+                        scene.physics.world.enable(container); 
+                        otherPlayers[id] = container;
+                    } else {
+                        const targetX = playersData[id].x;
+                        const targetY = playersData[id].y;
+
+                        let bS = otherPlayers[id].list[0];
+                        let hS = otherPlayers[id].list[1];
+                        if (targetX < otherPlayers[id].x) { bS.setFlipX(true); hS.setFlipX(true); } 
+                        else if (targetX > otherPlayers[id].x) { bS.setFlipX(false); hS.setFlipX(false); }
+
+                        if (otherPlayers[id].movementTween) otherPlayers[id].movementTween.stop();
+                        otherPlayers[id].movementTween = scene.tweens.add({
+                            targets: otherPlayers[id], x: targetX, y: targetY, duration: 100, ease: 'Linear'
+                        });
+                    }
+                }
+                for (let id in otherPlayers) { if (!playersData[id]) { otherPlayers[id].destroy(); delete otherPlayers[id]; } }
+            }
+
+            // HIỆN SAT THƯƠNG VÀ CỘNG TIỀM NĂNG REAL-TIME
+            if (packet.type === 'SKILL_EFFECT_BROADCAST') {
+                txtCombatLog.setText(`[${packet.data.attackerId}] tung chiêu [${packet.data.skillName}] gây -${packet.data.damage} HP!`);
+                
+                const spawnX = packet.data.mobX || 400;
+                const spawnY = packet.data.mobY || 200;
+
+                // 1. Số sát thương (Màu đỏ) bay lên
+                let dmgText = scene.add.text(spawnX, spawnY - 20, `-${packet.data.damage}`, { fontSize: '20px', fill: '#ff3333', fontWeight: 'bold' }).setOrigin(0.5);
+                scene.tweens.add({ targets: dmgText, y: spawnY - 70, alpha: 0, duration: 1000, onComplete: () => dmgText.destroy() });
+
+                // 2. Số Tiềm năng nhận được (Màu vàng) bay chéo sang góc bên cạnh
+                if (packet.data.tiemNangCong > 0) {
+                    let tnText = scene.add.text(spawnX + 25, spawnY - 10, `+${packet.data.tiemNangCong} TN`, { fontSize: '15px', fill: '#ffff00', fontWeight: 'bold' }).setOrigin(0.5);
+                    scene.tweens.add({ targets: tnText, y: spawnY - 50, x: spawnX + 45, alpha: 0, duration: 1200, onComplete: () => tnText.destroy() });
+                }
+            }
+        };
+    }
+
     function update() {
         if (!player || !ws || ws.readyState !== 1) return;
-
-        let moved = false;
-        player.body.setVelocity(0);
+        let moved = false; player.body.setVelocity(0);
 
         if (cursors.left.isDown) { player.body.setVelocityX(-150); moved = true; player.partBody.setFlipX(true); player.partHead.setFlipX(true); }
         else if (cursors.right.isDown) { player.body.setVelocityX(150); moved = true; player.partBody.setFlipX(false); player.partHead.setFlipX(false); }
         if (cursors.up.isDown) { player.body.setVelocityY(-150); moved = true; }
         else if (cursors.down.isDown) { player.body.setVelocityY(150); moved = true; }
 
-        if (moved) {
-            ws.send(JSON.stringify({ type: 'PLAYER_MOVE', data: { x: player.x, y: player.y, isMoving: moved } }));
-        }
+        if (moved) ws.send(JSON.stringify({ type: 'PLAYER_MOVE', data: { x: player.x, y: player.y, isMoving: moved } }));
 
-        // --- BẤM CÁCH ĐỂ ĐẤM QUÁI ---
         let timeNow = this.time.now;
-        if (Phaser.Input.Keyboard.JustDown(spaceKey) && timeNow > nextAttackTime) {
-            nextAttackTime = timeNow + 300; 
+        if (timeNow > nextAttackTime) {
+            let selectedSkillIndex = 0;
+            if (Phaser.Input.Keyboard.JustDown(key1)) selectedSkillIndex = 1;
+            else if (Phaser.Input.Keyboard.JustDown(key2)) selectedSkillIndex = 2;
+            else if (Phaser.Input.Keyboard.JustDown(key3)) selectedSkillIndex = 3;
 
-            ws.send(JSON.stringify({
-                type: 'PLAYER_ATTACK',
-                data: { targetId: 'mob_moc_nhan' }
-            }));
+            if (selectedSkillIndex > 0) {
+                nextAttackTime = timeNow + 400;
+                ws.send(JSON.stringify({ type: 'PLAYER_USE_SKILL', data: { skillIndex: selectedSkillIndex } }));
+            }
         }
     }
 </script>

@@ -1,0 +1,72 @@
+{
+    "player_chuan_nro": {
+        "x": 242.5,
+        "y": 310,
+        "sucManh": 8036,
+        "tiemNang": 1336,
+        "sucDanh": 310,
+        "maxHp": 1000,
+        "maxKi": 1000
+    },
+    "a": {
+        "password": "a",
+        "chosenPlanet": "XAYDA",
+        "x": 446,
+        "y": 148.5,
+        "sucManh": 10131,
+        "tiemNang": 9131,
+        "sucDanh": 50,
+        "maxHp": 1000,
+        "hp": 1000,
+        "skills": [
+            {
+                "name": "Đấm Dragon",
+                "range": 80,
+                "dmgMultiplier": 1.2,
+                "id": "xd_1_dam"
+            },
+            {
+                "name": "Antomic",
+                "range": 240,
+                "dmgMultiplier": 1.6,
+                "id": "xd_2_chuong"
+            },
+            {
+                "name": "Biến Khỉ",
+                "range": 100,
+                "dmgMultiplier": 2.5,
+                "id": "xd_3_bienkhi"
+            }
+        ]
+    },
+    "Bret": {
+        "password": "92998-3874",
+        "chosenPlanet": "TRAI_DAT",
+        "x": 360,
+        "y": 227.5,
+        "sucManh": 3927,
+        "tiemNang": 2927,
+        "sucDanh": 50,
+        "maxHp": 1000,
+        "hp": 1000,
+        "skills": [
+            {
+                "name": "Đấm Galick",
+                "range": 80,
+                "dmgMultiplier": 1,
+                "id": "td_1_dam"
+            },
+            {
+                "name": "Kamejoko",
+                "range": 300,
+                "dmgMultiplier": 1.8,
+                "id": "td_2_chuong"
+            },
+            {
+                "name": "Thái Dương Hạ San",
+                "range": 150,
+                "dmgMultiplier": 0.2,
+                "id": "td_3_thaiduong"
+            }
+        ]
+    }

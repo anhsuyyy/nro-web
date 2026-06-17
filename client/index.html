@@ -2,82 +2,83 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Ngọc Rồng Web - Bản Thử Nghiệm Kết Nối</title>
+    <title>Ngọc Rồng Online Web - Đăng Nhập</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #222; color: #fff; padding: 20px; }
-        #chat-box { width: 100%; height: 300px; background: #000; border: 1px solid #55px; overflow-y: scroll; padding: 10px; box-sizing: border-box; }
-        #input-panel { margin-top: 10px; }
-        input { padding: 10px; width: 70%; }
-        button { padding: 10px 20px; }
+        body { background: #1a1a1a; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .box { background: #2c3e50; padding: 30px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.5); width: 320px; text-align: center; }
+        input { width: 90%; padding: 10px; margin: 10px 0; border: none; border-radius: 5px; }
+        button { width: 95%; padding: 10px; background: #e67e22; border: none; border-radius: 5px; color: #fff; font-weight: bold; cursor: pointer; margin-top: 5px;}
+        button:hover { background: #d35400; }
+        .toggle-link { color: #3498db; cursor: pointer; font-size: 13px; margin-top: 10px; display: block; }
+        .planet-select { display: none; }
+        .planet-card { background: #34495e; padding: 15px; margin: 10px 0; border-radius: 5px; cursor: pointer; border: 2px solid transparent; }
+        .planet-card:hover { border-color: #f1c40f; }
     </style>
 </head>
 <body>
 
-    <h2>🐉 NRO WEB - GIAI ĐOẠN 1: KẾT NỐI REAL-TIME</h2>
-    <div id="status">Trạng thái: Đang kết nối...</div>
-    <p>ID của bạn: <span id="my-id" style="color: yellow; font-weight: bold;">Chưa có</span></p>
+    <div class="box" id="authBox">
+        <h2 id="authTitle">ĐĂNG NHẬP NRO</h2>
+        <input type="text" id="inpUser" placeholder="Tài khoản...">
+        <input type="password" id="inpPass" placeholder="Mật khẩu...">
+        <button id="btnSubmit" onclick="submitAuth()">VÀO GAME</button>
+        <span class="toggle-link" id="toggleLink" onclick="toggleMode()">Chưa có tài khoản? Đăng ký ngay</span>
+    </div>
 
-    <div id="chat-box"></div>
-
-    <div id="input-panel">
-        <input type="text" id="chat-msg" placeholder="Nhập tin nhắn chat thế giới..." disabled>
-        <button id="send-btn" disabled>Gửi</button>
+    <div class="box planet-select" id="planetBox">
+        <h2>CHỌN HÀNH TINH</h2>
+        <p style="font-size: 12px; color: #bdc3c7;">Tài khoản mới, vui lòng chọn bộ tộc:</p>
+        <div class="planet-card" onclick="selectPlanet('TRAI_DAT')">🌍 Trái Đất (Kamejoko / Cân bằng)</div>
+        <div class="planet-card" onclick="selectPlanet('NAMEC')">🟢 Namếc (Trị thương / Hỗ trợ)</div>
+        <div class="planet-card" onclick="selectPlanet('XAYDA')">🐒 Xayda (Biến khỉ / Sát thương Chí mạng)</div>
     </div>
 
     <script>
-        // Kết nối tới Game Server thông qua giao thức ws://
-        const ws = new WebSocket('ws://localhost:8080');
-        
-        const statusDiv = document.getElementById('status');
-        const myIdSpan = document.getElementById('my-id');
-        const chatBox = document.getElementById('chat-box');
-        const chatMsg = document.getElementById('chat-msg');
-        const sendBtn = document.getElementById('send-btn');
+        let ws = new WebSocket('ws://localhost:8080');
+        let isRegisterMode = false;
+        let internalUser = "";
 
-        // Khi kết nối thành công
-        ws.onopen = () => {
-            statusDiv.innerHTML = "Trạng thái:🟢 Đã kết nối Server thành công!";
-            chatMsg.disabled = false;
-            sendBtn.disabled = false;
-        };
-
-        // Khi nhận được dữ liệu từ Server gửi về
-        ws.onmessage = (event) => {
-            const packet = JSON.parse(event.data);
-            
-            if (packet.type === 'INIT_CONNECTED') {
-                myIdSpan.innerText = packet.data.id;
-            }
-
-            if (packet.type === 'PLAYER_CHAT') {
-                chatBox.innerHTML += `<p><b>[${packet.data.id}]:</b> ${packet.data.message}</p>`;
-                chatBox.scrollTop = chatBox.scrollHeight; // Tự cuộn xuống dưới
-            }
-        };
-
-        // Khi mất kết nối
-        ws.onclose = () => {
-            statusDiv.innerHTML = "Trạng thái:🔴 Mất kết nối Server!";
-            chatMsg.disabled = true;
-            sendBtn.disabled = true;
-        };
-
-        // Logic gửi tin nhắn lên server
-        function sendMessage() {
-            const text = chatMsg.value.trim();
-            if(text === "") return;
-
-            // Đóng gói dữ liệu dạng JSON gửi lên Server
-            ws.send(JSON.stringify({
-                type: 'CHAT',
-                data: { message: text }
-            }));
-
-            chatMsg.value = "";
+        function toggleMode() {
+            isRegisterMode = !isRegisterMode;
+            document.getElementById('authTitle').innerText = isRegisterMode ? "ĐĂNG KÝ TÀI KHOẢN" : "ĐĂNG NHẬP NRO";
+            document.getElementById('toggleLink').innerText = isRegisterMode ? "Đã có tài khoản? Đăng nhập" : "Chưa có tài khoản? Đăng ký ngay";
         }
 
-        sendBtn.addEventListener('click', sendMessage);
-        chatMsg.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
+        function submitAuth() {
+            const user = document.getElementById('inpUser').value.trim();
+            const pass = document.getElementById('inpPass').value.trim();
+            if(!user || !pass) return alert("Vui lòng điền đủ thông tin!");
+            
+            internalUser = user;
+            ws.send(JSON.stringify({
+                type: 'AUTH',
+                data: { user: user, pass: pass, isRegister: isRegisterMode }
+            }));
+        }
+
+        function selectPlanet(planetName) {
+            ws.send(JSON.stringify({
+                type: 'CHOOSE_PLANET',
+                data: { user: internalUser, planet: planetName }
+            }));
+        }
+
+        ws.onmessage = (event) => {
+            const packet = JSON.parse(event.data);
+
+            if (packet.type === 'AUTH_FAIL') {
+                alert(packet.data.msg);
+            }
+            if (packet.type === 'NEED_CHOOSE_PLANET') {
+                document.getElementById('authBox').style.display = 'none';
+                document.getElementById('planetBox').style.display = 'block';
+            }
+            if (packet.type === 'INIT_CONNECTED') {
+                // Đăng nhập/Chọn hành tinh thành công hoàn toàn, lưu thông tin vào sessionStorage rồi chuyển sang màn chơi game!
+                sessionStorage.setItem('nro_username', packet.data.id);
+                window.location.href = 'game.html';
+            }
+        };
     </script>
 </body>
 </html>
